@@ -3,13 +3,81 @@ import re
 import subprocess
 import json
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 
 app = Flask(__name__)
-
+app.secret_key = 'dnsrecapp_secret_key'  # Güçlü bir key ile değiştirin
 
 LOG_FILE = 'data/dns_operations.log'
 ZONE_PATHS_FILE = 'zone_paths.json'
+USERS_FILE = 'users.json'
+
+# --- User Management ---
+
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        return {}
+    with open(USERS_FILE, 'r') as f:
+        return json.load(f)
+
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=4)
+
+def check_login(username, password):
+    users = load_users()
+    return username in users and users[username] == password
+
+def login_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('user'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- Login/Logout Routes ---
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if check_login(username, password):
+            session['user'] = username
+            return redirect(url_for('index'))
+        else:
+            flash('Kullanıcı adı veya şifre hatalı', 'danger')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('login'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        password2 = request.form.get('password2', '')
+        if not username or not password:
+            flash('Kullanıcı adı ve şifre zorunludur.', 'danger')
+        elif password != password2:
+            flash('Şifreler eşleşmiyor.', 'danger')
+        else:
+            users = load_users()
+            if username in users:
+                flash('Bu kullanıcı adı zaten kayıtlı.', 'danger')
+            else:
+                users[username] = password
+                save_users(users)
+                flash('Kayıt başarılı. Giriş yapabilirsiniz.', 'success')
+                return redirect(url_for('login'))
+    return render_template('register.html')
+
+# --- Uygulamanın geri kalanı ---
 
 # Zone'a özel config dosya adı
 def get_config_file(zone):
@@ -196,6 +264,7 @@ def update_zone_files(config):
    
 # Ana sayfa: zone parametresi ile ilgili zone'un kayıtlarını yükle
 @app.route('/')
+@login_required
 def index():
     zone = request.args.get('zone')
     config = load_config(zone)
@@ -223,6 +292,7 @@ def index():
 
 # Zone'a göre kayıt ekle
 @app.route('/add', methods=['POST'])
+@login_required
 def add_record():
     ip = request.form.get('ip')
     name = request.form.get('name')
@@ -230,6 +300,10 @@ def add_record():
 
     # --- DNS adı kısa ise zone ile tamamla ---
     name = ensure_fqdn(name, zone)
+
+    # Label sayısı kontrolü (ör: example.ex.anka.local = 4 Label)
+    if len(name.split('.')) > 4:
+        return jsonify({'success': False, 'message': 'DNS adı en fazla 4 Labeldan oluşabilir (örn: host.sub.zone.tld)'})
 
     if not is_valid_ip(ip):
         return jsonify({'success': False, 'message': 'Geçersiz IP adresi'})
@@ -262,6 +336,7 @@ def add_record():
 
 # Zone'a göre kayıt sil
 @app.route('/delete/<int:index>', methods=['POST'])
+@login_required
 def delete_record(index):
     zone = request.form.get('zone')
     config = load_config(zone)
@@ -290,6 +365,7 @@ def delete_record(index):
 
 # Zone'a göre kayıt düzenle
 @app.route('/edit/<int:index>', methods=['POST'])
+@login_required
 def edit_record(index):
     ip = request.form.get('ip')
     name = request.form.get('name')
@@ -297,6 +373,10 @@ def edit_record(index):
 
     # --- DNS adı kısa ise zone ile tamamla ---
     name = ensure_fqdn(name, zone)
+
+    # Label sayısı kontrolü (ör: example.ex.anka.local = 4 Label)
+    if len(name.split('.')) > 4:
+        return jsonify({'success': False, 'message': 'DNS adı en fazla 4 Labeldan oluşabilir (örn: host.sub.zone.tld)'})
 
     if not is_valid_ip(ip):
         return jsonify({'success': False, 'message': 'Geçersiz IP adresi'})
@@ -330,6 +410,7 @@ def edit_record(index):
 
 # Zone'a göre zone dosya yollarını güncelle
 @app.route('/update_zone_paths', methods=['POST'])
+@login_required
 def update_zone_paths():
     forward_path = request.form.get('forward_path')
     reverse_path = request.form.get('reverse_path')
@@ -383,6 +464,7 @@ def update_zone_paths():
     })
 
 @app.route('/nslookup/<name>')
+@login_required
 def run_nslookup(name):
     zone = request.args.get('zone')
     # config = load_config(zone)  # Kullanılmıyor, kaldırıldı
@@ -397,6 +479,7 @@ def run_nslookup(name):
         return jsonify({'success': False, 'output': str(e)})
 
 @app.route('/logs')
+@login_required
 def show_logs():
     log_path = os.path.join('data', 'dns_operations.log')
     logs = []

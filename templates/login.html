@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Giriş Yap</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="/static/ankasoft-logo.png">
+    <style>
+        body {
+            background: #b8c4f1;
+        }
+        .login-container {
+            background: #fff;
+            width: 400px;
+            min-height: 410px;
+            margin: 0 auto;
+            padding: 32px 32px 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            border: 2px solid;
+            border-image: linear-gradient(90deg, #ff9800 0%, #ff3c00 30%, #e91e63 65%, #8e24aa 100%) 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .footer {
+            text-align: center;
+            color: #ff9800;
+            font-size: 13px;
+            margin-top: 18px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="flex flex-col items-center justify-center min-h-screen">
+        <div class="flex items-center mb-8 w-[400px]">
+            <div class="flex items-center w-full rounded-xl shadow-lg border-2 border-orange-400 bg-gradient-to-r from-orange-400 via-red-500 via-pink-500 to-purple-600 p-4" style="min-height:110px; border-image: linear-gradient(90deg, #ff9800 0%, #ff3c00 30%, #e91e63 65%, #8e24aa 100%) 1; border-width:2px; border-style:solid;">
+                <img src="/static/ankasoft-logo.png" alt="AnkaSoft Logo" style="width:80px;max-width:20vw;" class="mr-6 bg-white bg-opacity-80 rounded-lg p-2 shadow">
+                <h1 class="text-2xl font-bold text-black drop-shadow-lg" style="letter-spacing:1px;">ANKASOFT DNS Kayıt Yönetim Paneli</h1>
+            </div>
+        </div>
+        <div class="login-container">
+            <h2 class="text-xl font-semibold text-center mb-6 text-gray-800">Giriş Yap</h2>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                <ul class="mb-4">
+                {% for category, message in messages %}
+                  <li class="text-red-600 text-sm">{{ message }}</li>
+                {% endfor %}
+                </ul>
+              {% endif %}
+            {% endwith %}
+            <form method="post" class="space-y-4 flex-1 flex flex-col justify-center">
+                <div>
+                    <label for="username" class="block text-gray-700 mb-1">Kullanıcı Adı</label>
+                    <input type="text" id="username" name="username" required autofocus
+                        class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 bg-gray-50">
+                </div>
+                <div>
+                    <label for="password" class="block text-gray-700 mb-1">Şifre</label>
+                    <input type="password" id="password" name="password" required
+                        class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 bg-gray-50">
+                </div>
+                <button type="submit"
+                    style="background-color: #ff9800;"
+                    class="w-full hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold shadow transition">
+                    Giriş Yap
+                </button>
+                <button type="button"
+                    onclick="window.location.href='/register'"
+                    class="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-orange-700 px-4 py-2 rounded-lg font-bold shadow transition border border-orange-300">
+                    Kayıt Ol
+                </button>
+            </form>
+            <div class="footer mt-4">
+                &copy; {{ 2024 }} DNS Yönetim Paneli
+            </div>
+        </div>
+    </div>
+</html>
