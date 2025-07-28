@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="/static/ankasoft-logo.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS Kayıt Yönetimi</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .log-entry {
+            transition: all 0.3s ease;
+        }
+        .log-entry:hover {
+            background-color: #f3f4f6;
+        }
+        .action-add {
+            border-left: 4px solid #10B981;
+        }
+        .action-delete {
+            border-left: 4px solid #EF4444;
+        }
+        .action-edit {
+            border-left: 4px solid #3B82F6;
+        }
+        .action-config {
+            border-left: 4px solid #F59E0B;
+        }   
+        .action-error {
+            border-left: 4px solid #6B7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex flex-row items-center mb-8">
+            <div class="flex items-center w-full rounded-xl shadow-lg border-2 border-orange-400 bg-gradient-to-r from-orange-400 via-red-500 via-pink-500 to-purple-600 p-4" style="min-height:110px; border-image: linear-gradient(90deg, #ff9800 0%, #ff3c00 30%, #e91e63 65%, #8e24aa 100%) 1; border-width:2px; border-style:solid;">
+                <img src="/static/ankasoft-logo.png" alt="AnkaSoft Logo" style="width:100px;max-width:20vw;" class="mr-6 bg-white bg-opacity-80 rounded-lg p-2 shadow">
+                <h1 class="text-3xl font-bold text-black drop-shadow-lg" style="letter-spacing:1px;">AnkaSoft DNS Kayıt Yönetim Paneli</h1>
+            </div>
+        </div>
+        <!-- Hata mesajı kutusu -->
+        <div id="errorBox" class="hidden mb-4 p-3 rounded bg-red-100 border border-red-400 text-red-700"></div>
+
+
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- DNS Ekleme Paneli -->
+            <div class="bg-white p-6 rounded-lg shadow-md lg:col-span-1 border-2 border-orange-400" style="border-image: linear-gradient(90deg, #ff9800 0%, #ff3c00 30%, #e91e63 65%, #8e24aa 100%) 1; border-width:2px; border-style:solid;">
+                <h2 class="text-xl font-semibold mb-4">DNS Kayıt Ekle</h2>
+                
+                <!-- Zone seçme kutusu -->
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="zone_select">Kayıtlı Zone'lar:</label>
+                    <select id="zone_select"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="onZoneSelectChange()">
+                        <option value="">-- Zone Seçin --</option>
+                        {% for z, paths in zone_paths.items() %}
+                            <option value="{{ z }}" {% if selected_zone == z %}selected{% endif %}>
+                                {{ z }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="forward_path">Forward Zone Dosya Yolu:</label>
+                    <input type="text" id="forward_path"
+                           value="{{ forward_zone_path if forward_zone_path else '' }}"
+                           placeholder="/etc/bind/forward.zone"
+                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400">
+                    
+                    <label class="block text-gray-700 mb-2 mt-4" for="reverse_path">Reverse Zone Dosya Yolu:</label>
+                    <input type="text" id="reverse_path"
+                           value="{{ reverse_zone_path if reverse_zone_path else '' }}"
+                           placeholder="/etc/bind/reverse.zone"
+                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400">
+                    
+                    <button onclick="updateZonePaths()" 
+                            class="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition">
+                        Yolları Güncelle
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="ip">IP Adresi:</label>
+                    <input type="text" id="ip" placeholder="192.168.1.100" 
+                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="name">DNS Adı:</label>
+                    <input type="text" id="name" placeholder="server.example.com" 
+                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <button onclick="addRecord()" 
+                        class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition">
+                    Kayıt Ekle
+                </button>
+            </div>
+            
+            <!-- Kayıtlı DNS'ler -->
+            <div class="bg-white p-6 rounded-lg shadow-md border-2 border-orange-400 lg:col-span-2" style="overflow-x:auto; min-width:420px; border-image: linear-gradient(90deg, #ff9800 0%, #ff3c00 30%, #e91e63 65%, #8e24aa 100%) 1; border-width:2px; border-style:solid;">
+                <h2 class="text-xl font-semibold mb-4">Kayıtlı DNS'ler</h2>
+                <!-- Arama kutusu -->
+                <div class="mb-4">
+                    <input type="text" id="dnsSearch" placeholder="DNS adı veya IP ile ara..." class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" onkeyup="filterDnsRecords()">
+                </div>
+                <div class="overflow-x-auto overflow-y-auto max-h-96">
+                    <table class="min-w-full max-w-full table-fixed divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DNS Adı</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Adresi</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recordsTable" class="bg-white divide-y divide-gray-200">
+                            {% for record in records %}
+                            <tr id="record-{{ loop.index0 }}">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">{{ record.name }}</div>
+                                    <button onclick="runLookup('{{ record.name }}')"
+                                            class="text-xs text-blue-500 hover:text-blue-700 mt-1">
+                                        <i class="fas fa-search mr-1"></i>nslookup
+                                    </button>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">{{ record.ip }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button onclick="showEditModal({{ loop.index0 }}, '{{ record.name }}', '{{ record.ip }}')"
+                                            class="text-blue-600 hover:text-blue-900 mr-3">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteRecord({{ loop.index0 }})"
+                                            class="text-red-600 hover:text-red-900">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+        <script>
+        // DNS kayıtlarını filtrele
+        function filterDnsRecords() {
+            const input = document.getElementById('dnsSearch');
+            const filter = input.value.toLowerCase();
+            const table = document.getElementById('recordsTable');
+            const trs = table.getElementsByTagName('tr');
+            for (let i = 0; i < trs.length; i++) {
+                const tds = trs[i].getElementsByTagName('td');
+                if (tds.length > 1) {
+                    const dns = tds[0].innerText.toLowerCase();
+                    const ip = tds[1].innerText.toLowerCase();
+                    if (dns.includes(filter) || ip.includes(filter)) {
+                        trs[i].style.display = '';
+                    } else {
+                        trs[i].style.display = 'none';
+                    }
+                }
+            }
+        }
+        </script>
+            </div>
+            
+            <!-- Loglar -->
+            <div class="bg-white p-6 rounded-lg shadow-md lg:col-span-1 border-2 border-orange-400 flex flex-col min-h-0" style="border-image: linear-gradient(90deg, #ff9800 0%, #ff3c00 30%, #e91e63 65%, #8e24aa 100%) 1; border-width:2px; border-style:solid;">
+                <h2 class="text-xl font-semibold mb-4">İşlem Logları</h2>
+                
+                <div id="logContainer" class="overflow-y-auto max-h-96 space-y-2 h-full min-h-0 flex-1">
+                    {% for log in logs %}
+                    <div class="log-entry p-3 rounded {% if 'ADD' in log %}action-add{% elif 'DELETE' in log %}action-delete{% elif 'EDIT' in log %}action-edit{% elif 'CONFIG' in log %}action-config{% else %}action-error{% endif %}">
+                        <div class="text-sm text-gray-700">{{ log }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="flex justify-center mt-4">
+                    <a href="/logs" target="_blank" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">Tüm Logları Göster</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-96">
+            <h3 class="text-lg font-semibold mb-4">DNS Kaydını Düzenle</h3>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">IP Adresi:</label>
+                <input type="text" id="edit_ip" class="w-full px-3 py-2 border rounded-lg">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">DNS Adı:</label>
+                <input type="text" id="edit_name" class="w-full px-3 py-2 border rounded-lg">
+            </div>
+            
+            <input type="hidden" id="edit_index">
+            
+            <div class="flex justify-end space-x-3">
+                <button onclick="hideEditModal()" class="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-100">İptal</button>
+                <button onclick="saveEdit()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Kaydet</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lookup Modal -->
+    <div id="lookupModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-96 max-h-[80vh] overflow-auto">
+            <h3 class="text-lg font-semibold mb-4" id="lookupTitle">nslookup Sonucu</h3>
+            
+            <pre class="bg-gray-100 p-3 rounded-lg font-mono text-sm whitespace-pre-wrap" id="lookupResult" style="overflow-x:auto;">
+Sonuçlar burada görünecek...
+            </pre>
+            
+            <div class="flex justify-end mt-4">
+                <button onclick="hideLookupModal()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Hata mesajı kutusunu göster
+        function showError(message) {
+            const errorBox = document.getElementById('errorBox');
+            errorBox.textContent = message;
+            errorBox.classList.remove('hidden');
+        }
+        // Hata mesajı kutusunu gizle
+        function hideError() {
+            const errorBox = document.getElementById('errorBox');
+            errorBox.textContent = '';
+            errorBox.classList.add('hidden');
+        }
+
+        // Yeni log ekle
+        function addLogToContainer(log, action) {
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            
+            let actionClass = 'action-error';
+            if (action === 'ADD') actionClass = 'action-add';
+            else if (action === 'DELETE') actionClass = 'action-delete';
+            else if (action === 'EDIT') actionClass = 'action-edit';
+            else if (action === 'CONFIG') actionClass = 'action-config';
+            
+            logEntry.className = `log-entry p-3 rounded ${actionClass}`;
+            logEntry.innerHTML = `<div class="text-sm text-gray-700">${log}</div>`;
+            
+            logContainer.insertBefore(logEntry, logContainer.firstChild);
+        }
+        
+        // Yeni kayıt ekle
+        function addRecordToTable(record, index) {
+            const tableBody = document.getElementById('recordsTable');
+            const row = document.createElement('tr');
+            row.id = `record-${index}`;
+            
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">${record.name}</div>
+                    <button onclick="runLookup('${record.name}')" 
+                            class="text-xs text-blue-500 hover:text-blue-700 mt-1">
+                        <i class="fas fa-search mr-1"></i>nslookup
+                    </button>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">${record.ip}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button onclick="showEditModal(${index}, '${record.name}', '${record.ip}')" 
+                            class="text-blue-600 hover:text-blue-900 mr-3">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteRecord(${index})" 
+                            class="text-red-600 hover:text-red-900">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            `;
+            
+            tableBody.appendChild(row);
+        }
+        
+        // Kaydı tablodan sil
+        function removeRecordFromTable(index) {
+            const row = document.getElementById(`record-${index}`);
+            if (row) {
+                row.remove();
+            }
+        }
+        
+        // Kaydı tabloda güncelle
+        function updateRecordInTable(record, index) {
+            const row = document.getElementById(`record-${index}`);
+            if (row) {
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${record.name}</div>
+                        <button onclick="runLookup('${record.name}')" 
+                                class="text-xs text-blue-500 hover:text-blue-700 mt-1">
+                            <i class="fas fa-search mr-1"></i>nslookup
+                        </button>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">${record.ip}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="showEditModal(${index}, '${record.name}', '${record.ip}')" 
+                                class="text-blue-600 hover:text-blue-900 mr-3">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteRecord(${index})" 
+                                class="text-red-600 hover:text-red-900">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                `;
+            }
+        }
+        
+        // Zone adını forward_path'ten çıkar (forward.ankalocal gibi dosya adından zone'u al)
+        function getCurrentZone() {
+            const forwardPath = document.getElementById('forward_path').value;
+            const base = forwardPath.split('/').pop();
+            if (base.startsWith('forward.')) {
+                return base.substring('forward.'.length);
+            }
+            return '';
+        }
+
+        // DNS Kaydı Ekle
+        function addRecord() {
+            hideError();
+            const ip = document.getElementById('ip').value;
+            const name = document.getElementById('name').value;
+            const zone = getCurrentZone();
+            fetch('/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `ip=${encodeURIComponent(ip)}&name=${encodeURIComponent(name)}&zone=${encodeURIComponent(zone)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('ip').value = '';
+                    document.getElementById('name').value = '';
+                    addRecordToTable(data.record, document.getElementById('recordsTable').children.length);
+                    const timestamp = new Date().toLocaleString();
+                    addLogToContainer(`${timestamp} - ADD - Added record: ${name} -> ${ip}`, 'ADD');
+                } else {
+                    showError(data.message || 'Bilinmeyen hata');
+                }
+            })
+            .catch(error => {
+                showError('İstek sırasında hata oluştu: ' + error);
+            });
+        }
+        
+        // DNS Kaydı Sil
+        function deleteRecord(index) {
+            hideError();
+            if (!confirm('Bu DNS kaydını silmek istediğinize emin misiniz?')) return;
+            const zone = getCurrentZone();
+            fetch(`/delete/${index}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `zone=${encodeURIComponent(zone)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Silme sonrası zone parametresiyle sayfayı yenile
+                    const zone = getCurrentZone();
+                    window.location.href = `/?zone=${encodeURIComponent(zone)}`;
+                } else {
+                    showError(data.message || 'Bilinmeyen hata');
+                }
+            })
+            .catch(error => {
+                showError('İstek sırasında hata oluştu: ' + error);
+            });
+        }
+        
+        // Zone Dosya Yollarını Güncelle
+        function updateZonePaths() {
+            const forwardPath = document.getElementById('forward_path').value;
+            const reversePath = document.getElementById('reverse_path').value;
+            
+            const zone = getCurrentZone();
+            fetch('/update_zone_paths', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `forward_path=${encodeURIComponent(forwardPath)}&reverse_path=${encodeURIComponent(reversePath)}&zone=${encodeURIComponent(zone)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Zone adını tekrar bul
+                    const zone = getCurrentZone();
+                    // Sayfayı zone parametresiyle yenile
+                    window.location.href = `/?zone=${encodeURIComponent(zone)}`;
+                } else {
+                    alert('Hata: ' + (data.message || 'Bilinmeyen hata'));
+                }
+            })
+            .catch(error => {
+                alert('İstek sırasında hata oluştu: ' + error);
+            });
+        }
+        
+        // Edit Modal İşlemleri
+        function showEditModal(index, name, ip) {
+            document.getElementById('edit_index').value = index;
+            document.getElementById('edit_name').value = name;
+            document.getElementById('edit_ip').value = ip;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+        
+        function hideEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+        
+        function saveEdit() {
+            hideError();
+            const index = document.getElementById('edit_index').value;
+            const ip = document.getElementById('edit_ip').value;
+            const name = document.getElementById('edit_name').value;
+            const zone = getCurrentZone();
+            fetch(`/edit/${index}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `ip=${encodeURIComponent(ip)}&name=${encodeURIComponent(name)}&zone=${encodeURIComponent(zone)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateRecordInTable(data.record, data.index);
+                    hideEditModal();
+                    const timestamp = new Date().toLocaleString();
+                    addLogToContainer(`${timestamp} - EDIT - Edited record at index ${index} to ${name} -> ${ip}`, 'EDIT');
+                } else {
+                    showError(data.message || 'Bilinmeyen hata');
+                }
+            })
+            .catch(error => {
+                showError('İstek sırasında hata oluştu: ' + error);
+            });
+        }
+        
+
+        // nslookup İşlemleri
+        function runLookup(name) {
+            hideError();
+            const zone = getCurrentZone();
+            const lookupTitle = document.getElementById('lookupTitle');
+            const lookupResult = document.getElementById('lookupResult');
+            lookupTitle.textContent = `nslookup: ${name}${zone ? ' (zone: ' + zone + ')' : ''}`;
+            lookupResult.textContent = 'Sorgulanıyor...';
+            document.getElementById('lookupModal').classList.remove('hidden');
+            fetch(`/nslookup/${name}?zone=${encodeURIComponent(zone)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const lines = data.output.split('\n').map(line => `<span>${line.replace(/ /g, '&nbsp;')}</span>`).join('<br>');
+                    lookupResult.innerHTML = lines;
+                } else {
+                    lookupResult.innerHTML = `<span style='color:red'>Hata: ${data.output || data.message || 'Bilinmeyen hata'}</span>`;
+                    showError(data.output || data.message || 'Bilinmeyen hata');
+                }
+            })
+            .catch(error => {
+                lookupResult.innerHTML = `<span style='color:red'>İstek sırasında hata oluştu: ${error}</span>`;
+                showError('İstek sırasında hata oluştu: ' + error);
+            });
+        }
+
+        function hideLookupModal() {
+            document.getElementById('lookupModal').classList.add('hidden');
+        }
+
+        // Zone seçildiğinde forward/reverse path inputlarını doldur ve sayfayı yenile
+        function onZoneSelectChange() {
+            const select = document.getElementById('zone_select');
+            const selectedZone = select.value;
+            // zone_paths değişkenini template'ten al
+            const zonePaths = {{ zone_paths|tojson }};
+            if (selectedZone && zonePaths[selectedZone]) {
+                document.getElementById('forward_path').value = zonePaths[selectedZone].forward;
+                document.getElementById('reverse_path').value = zonePaths[selectedZone].reverse;
+                // Sayfayı seçilen zone ile yenile
+                window.location.href = `/?zone=${encodeURIComponent(selectedZone)}`;
+            }
+        }
+    </script>
+</body>
+</html>
