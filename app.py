@@ -6,7 +6,6 @@ from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 
 app = Flask(__name__)
-app.secret_key = 'dnsrecapp_secret_key'  # Güçlü bir key ile değiştirin
 
 LOG_FILE = 'data/dns_operations.log'
 ZONE_PATHS_FILE = 'zone_paths.json'
