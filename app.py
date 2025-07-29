@@ -5,21 +5,25 @@ import json
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 
+
 app = Flask(__name__)
+app.secret_key = 'dnsrecapp_secret_key' # Güçlü bir key ile değiştirin
 
 LOG_FILE = 'data/dns_operations.log'
-ZONE_PATHS_FILE = 'zone_paths.json'
-USERS_FILE = 'users.json'
+ZONE_PATHS_FILE = 'data/zone_paths.json'
+USERS_FILE = 'data/users.json'
 
 # --- User Management ---
 
 def load_users():
+    ensure_data_directory()
     if not os.path.exists(USERS_FILE):
         return {}
     with open(USERS_FILE, 'r') as f:
         return json.load(f)
 
 def save_users(users):
+    ensure_data_directory()
     with open(USERS_FILE, 'w') as f:
         json.dump(users, f, indent=4)
 
@@ -78,14 +82,19 @@ def register():
 
 # --- Uygulamanın geri kalanı ---
 
+# Data klasörünün varlığını kontrol et
+def ensure_data_directory():
+    if not os.path.exists('data'):
+        os.makedirs('data')
+
 # Zone'a özel config dosya adı
 def get_config_file(zone):
     if not zone:
-        return 'dns_config.json'
+        return 'data/dns_config.json'
     # Sadece izin verilen karakterlerle zone adı oluşturulsun (whitelist)
     if not re.match(r'^[a-zA-Z0-9_.-]+$', zone):
         raise ValueError('Geçersiz zone adı (izin verilmeyen karakter)')
-    return f'dns_config.{zone}.json'
+    return f'data/dns_config.{zone}.json'
 
 # DNS kayıtlarını ve config'i yükle (zone'a göre)
 def load_config(zone=None):
@@ -115,6 +124,7 @@ def load_config(zone=None):
 
 # Config'i kaydet (zone'a göre)
 def save_config(config, zone=None):
+    ensure_data_directory()
     config_file = get_config_file(zone)
     # Config dosya yolu path traversal içeriyorsa engelle
     if '..' in config_file or config_file.startswith('/') or config_file.startswith('\\'):
@@ -124,11 +134,14 @@ def save_config(config, zone=None):
 
 # Log ekle
 def add_log(action, details):
+    ensure_data_directory()
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # Kullanıcı bilgisini al
+    username = session.get('user', 'unknown')
     # Eğer details içinde (zone: None) veya (zone: ) varsa, (zone: default) olarak değiştir
     if '(zone: None)' in details or '(zone: )' in details:
         details = details.replace('(zone: None)', '(zone: default)').replace('(zone: )', '(zone: default)')
-    log_entry = f"{timestamp} - {action} - {details}\n"
+    log_entry = f"{timestamp} - {action} - {details} - {username}\n"
     with open(LOG_FILE, 'a') as f:
         f.write(log_entry)
 
@@ -261,8 +274,17 @@ def update_zone_files(config):
         add_log('ERROR', f"Zone files update failed: {str(e)}")
         return False
    
-# Ana sayfa: zone parametresi ile ilgili zone'un kayıtlarını yükle
 @app.route('/')
+def root():
+    if not session.get('user'):
+        return redirect(url_for('login'))
+    # Zone parametresi varsa index'e yönlendir, yoksa zone seçimi için index'e git
+    zone = request.args.get('zone')
+    if zone:
+        return redirect(url_for('index', zone=zone))
+    return redirect(url_for('index'))
+
+@app.route('/index')
 @login_required
 def index():
     zone = request.args.get('zone')
@@ -274,7 +296,7 @@ def index():
     logs.reverse()  # En yeni loglar üstte
 
     # Zone listesi (mevcut config dosyalarından)
-    zone_files = [f for f in os.listdir('.') if f.startswith('dns_config.') and f.endswith('.json')]
+    zone_files = [f for f in os.listdir('data') if f.startswith('dns_config.') and f.endswith('.json')]
     zones = [f[11:-5] for f in zone_files if f != 'dns_config.json']
 
     # Eklenen zone path'lerini oku
@@ -466,10 +488,6 @@ def update_zone_paths():
 @login_required
 def run_nslookup(name):
     zone = request.args.get('zone')
-    # config = load_config(zone)  # Kullanılmıyor, kaldırıldı
-    # nslookup'ı zone'un forward zone dosyasına göre çalıştırmak için hosts dosyasını veya resolver'ı geçici olarak ayarlamak gerekebilir.
-    # Ancak burada doğrudan nslookup ile sorgu yapılır, sistemdeki resolver'a gider.
-    # Eğer zone dosyası sistemde aktif değilse sonuç alınamaz. Yine de standart nslookup çıktısı döndürülür.
     try:
         result = subprocess.run(['nslookup', name], capture_output=True, text=True)
         output = result.stdout if result.returncode == 0 else result.stderr
@@ -488,12 +506,18 @@ def show_logs():
     return render_template('logs.html', logs=logs)
 
 def load_zone_paths():
-    if not os.path.exists(ZONE_PATHS_FILE):
+    try:
+        ensure_data_directory()
+        if not os.path.exists(ZONE_PATHS_FILE):
+            return {}
+        with open(ZONE_PATHS_FILE, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Zone paths yüklenirken hata: {e}")
         return {}
-    with open(ZONE_PATHS_FILE, 'r') as f:
-        return json.load(f)
 
 def save_zone_paths(zone_paths):
+    ensure_data_directory()
     with open(ZONE_PATHS_FILE, 'w') as f:
         json.dump(zone_paths, f, indent=4)
 

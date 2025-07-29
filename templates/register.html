@@ -45,7 +45,11 @@
               {% if messages %}
                 <ul class="mb-4">
                 {% for category, message in messages %}
-                  <li class="text-red-600 text-sm">{{ message }}</li>
+                  {% if category == 'success' %}
+                    <li class="text-green-600 text-sm font-bold">{{ message }}</li>
+                  {% else %}
+                    <li class="text-red-600 text-sm">{{ message }}</li>
+                  {% endif %}
                 {% endfor %}
                 </ul>
               {% endif %}

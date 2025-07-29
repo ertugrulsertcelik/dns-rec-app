@@ -36,7 +36,15 @@
         <div class="flex flex-row items-center mb-8">
             <div class="flex items-center w-full rounded-xl shadow-lg border-2 border-orange-400 bg-gradient-to-r from-orange-400 via-red-500 via-pink-500 to-purple-600 p-4" style="min-height:110px; border-image: linear-gradient(90deg, #ff9800 0%, #ff3c00 30%, #e91e63 65%, #8e24aa 100%) 1; border-width:2px; border-style:solid;">
                 <img src="/static/ankasoft-logo.png" alt="AnkaSoft Logo" style="width:100px;max-width:20vw;" class="mr-6 bg-white bg-opacity-80 rounded-lg p-2 shadow">
-                <h1 class="text-3xl font-bold text-black drop-shadow-lg" style="letter-spacing:1px;">ANKASOFT DNS Kayıt Yönetim Paneli</h1>
+                <h1 class="text-3xl font-bold text-black drop-shadow-lg flex-1" style="letter-spacing:1px;">ANKASOFT DNS Kayıt Yönetim Paneli</h1>
+                <div class="flex items-center ml-auto">
+                    {% if session.user %}
+                        <span class="font-semibold bg-orange-500 px-4 py-2 rounded-lg border-2 border-orange-600 ml-4 text-black transform hover:scale-105 transition duration-200" style="box-shadow: 0 15px 30px -8px rgba(0, 0, 0, 0.3), 0 5px 15px -3px rgba(0, 0, 0, 0.2);">Merhaba, {{ session.user }}</span>
+                        <a href="/logout" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg border-2 border-red-600 ml-2 transition duration-200 font-semibold transform hover:scale-105" style="box-shadow: 0 15px 30px -8px rgba(0, 0, 0, 0.3), 0 5px 15px -3px rgba(0, 0, 0, 0.2);">
+                            <i class="fas fa-sign-out-alt mr-1"></i>Çıkış Yap
+                        </a>
+                    {% endif %}
+                </div>
             </div>
         </div>
         <!-- Hata mesajı kutusu -->
@@ -77,7 +85,7 @@
                            placeholder="/etc/bind/reverse.zone"
                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400">
                     
-                    <button onclick="updateZonePaths()" 
+                    <button type="button" onclick="updateZonePaths()" 
                             class="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition">
                         Yolları Güncelle
                     </button>
@@ -95,7 +103,7 @@
                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 
-                <button onclick="addRecord()" 
+                <button type="button" onclick="addRecord()" 
                         class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition">
                     Kayıt Ekle
                 </button>
@@ -129,11 +137,11 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">{{ record.ip }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button onclick="showEditModal({{ loop.index0 }}, '{{ record.name }}', '{{ record.ip }}')"
+                                    <button data-index="{{ loop.index0 }}" data-name="{{ record.name }}" data-ip="{{ record.ip }}" onclick="showEditModalFromData(this)"
                                             class="text-blue-600 hover:text-blue-900 mr-3">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button onclick="deleteRecord({{ loop.index0 }})"
+                                    <button data-index="{{ loop.index0 }}" onclick="deleteRecordFromData(this)"
                                             class="text-red-600 hover:text-red-900">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
@@ -224,6 +232,9 @@ Sonuçlar burada görünecek...
     </div>
 
     <script>
+        // Mevcut zone bilgisini JavaScript'e aktar
+        const currentZone = '{{ selected_zone or "" }}';
+        
         // Hata mesajı kutusunu göster
         function showError(message) {
             const errorBox = document.getElementById('errorBox');
@@ -386,6 +397,11 @@ Sonuçlar burada görünecek...
             });
         }
         
+        function deleteRecordFromData(button) {
+            const index = button.getAttribute('data-index');
+            deleteRecord(index);
+        }
+        
         // Zone Dosya Yollarını Güncelle
         function updateZonePaths() {
             const forwardPath = document.getElementById('forward_path').value;
@@ -423,6 +439,13 @@ Sonuçlar burada görünecek...
             document.getElementById('editModal').classList.remove('hidden');
         }
         
+        function showEditModalFromData(button) {
+            const index = button.getAttribute('data-index');
+            const name = button.getAttribute('data-name');
+            const ip = button.getAttribute('data-ip');
+            showEditModal(index, name, ip);
+        }
+        
         function hideEditModal() {
             document.getElementById('editModal').classList.add('hidden');
         }
@@ -446,7 +469,7 @@ Sonuçlar burada görünecek...
                     updateRecordInTable(data.record, data.index);
                     hideEditModal();
                     const timestamp = new Date().toLocaleString();
-                    addLogToContainer(`${timestamp} - EDIT - Edited record at index ${index} to ${name} -> ${ip}`, 'EDIT');
+                    addLogToContainer(`${timestamp} - EDIT - Edited record to ${name} -> ${ip}`, 'EDIT');
                 } else {
                     showError(data.message || 'Bilinmeyen hata');
                 }
@@ -489,15 +512,30 @@ Sonuçlar burada görünecek...
 
         // Zone seçildiğinde forward/reverse path inputlarını doldur ve sayfayı yenile
         function onZoneSelectChange() {
-            const select = document.getElementById('zone_select');
-            const selectedZone = select.value;
-            // zone_paths değişkenini template'ten al
-            const zonePaths = {{ zone_paths|tojson }};
-            if (selectedZone && zonePaths[selectedZone]) {
-                document.getElementById('forward_path').value = zonePaths[selectedZone].forward;
-                document.getElementById('reverse_path').value = zonePaths[selectedZone].reverse;
-                // Sayfayı seçilen zone ile yenile
-                window.location.href = `/?zone=${encodeURIComponent(selectedZone)}`;
+            try {
+                const select = document.getElementById('zone_select');
+                const selectedZone = select.value;
+                console.log('Selected zone:', selectedZone);
+                
+                if (selectedZone) {
+                    // Zone paths'i template'ten al
+                    const zonePaths = {{ zone_paths|tojson|safe }};
+                    console.log('Zone paths:', zonePaths);
+                    
+                    if (zonePaths[selectedZone]) {
+                        document.getElementById('forward_path').value = zonePaths[selectedZone].forward;
+                        document.getElementById('reverse_path').value = zonePaths[selectedZone].reverse;
+                    }
+                    
+                    // Sayfayı seçilen zone ile yenile
+                    window.location.href = `/?zone=${encodeURIComponent(selectedZone)}`;
+                } else {
+                    // Zone seçilmemişse ana sayfaya git
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                console.error('Zone seçimi hatası:', error);
+                alert('Zone seçimi sırasında hata oluştu: ' + error.message);
             }
         }
     </script>

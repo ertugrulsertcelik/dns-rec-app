@@ -1,6 +1,0 @@
-{
-    "anka.local": {
-        "forward": "/etc/bind/forward.anka.local",
-        "reverse": "/etc/bind/reverse.anka.local"
-    }
-}
