@@ -151,19 +151,46 @@ def is_valid_ip(ip):
     pattern = r'^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})$'
     if not re.match(pattern, ip):
         return False
+    
     parts = ip.split('.')
-    if ip == '0.0.0.0':
+    
+    # Geçersiz IP adresleri
+    invalid_ips = ['0.0.0.0', '127.0.0.1', '255.255.255.255']
+    if ip in invalid_ips:
         return False
+    
+    # Baştaki sıfırları kontrol et
     for part in parts:
         if len(part) > 1 and part.startswith('0'):
             return False
+    
     return True
 
 # DNS adı doğrulama
 def is_valid_dns_name(name):
-    # Başta veya sonda tire olmamasını da kontrol etmek için regex'i güncelledik
-    pattern = r'^(?!-)[A-Za-z0-9-]+(?<!-)(\.(?!-)[A-Za-z0-9-]+(?<!-))*\.[A-Za-z]{2,}$'
-    return re.match(pattern, name) is not None
+    # RFC 1035 ve RFC 1123 standartlarına uygun DNS adı doğrulama
+    if not name or len(name) > 253:  # FQDN maksimum 253 karakter
+        return False
+    
+    # Genel format kontrolü - RFC 1035 uyumlu
+    pattern = r'^[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9](\.(?!-)[A-Za-z0-9-]+(?<!-))*\.[A-Za-z]{2,}$'
+    if not re.match(pattern, name):
+        return False
+    
+    # Label uzunluk kontrolü (her label maksimum 63 karakter)
+    labels = name.split('.')
+    for label in labels:
+        if len(label) > 63:
+            return False
+        if len(label) == 0:  # Boş label kontrolü
+            return False
+    
+    # TLD uzunluk kontrolü (en az 2 karakter)
+    tld = labels[-1]
+    if len(tld) < 2:
+        return False
+    
+    return True
 
 
 # Reverse DNS için PTR kaydı oluştur

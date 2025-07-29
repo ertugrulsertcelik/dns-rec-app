@@ -519,7 +519,7 @@ Sonuçlar burada görünecek...
                 
                 if (selectedZone) {
                     // Zone paths'i template'ten al
-                    const zonePaths = {{ zone_paths|tojson|safe }};
+                    const zonePaths = JSON.parse('{{ zone_paths|tojson|safe }}');
                     console.log('Zone paths:', zonePaths);
                     
                     if (zonePaths[selectedZone]) {
