@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: dns-app
-          image: ertoserto/dns-reg-app:v2
+          image: ertoserto/dns-reg-app:v3
           ports: 
           - containerPort: 5000
 ---

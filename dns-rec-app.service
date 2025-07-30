@@ -1,0 +1,13 @@
+[Unit]
+Description=DNS Kayıt Uygulama Servisi
+After=network.target
+
+[Service]
+# User=ubuntu         #app root olarak calisiyor 
+
+WorkingDirectory= /app/dns-rec-app  
+ExecStart=/usr/bin/python3 app.py   
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
