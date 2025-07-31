@@ -147,19 +147,16 @@ def add_log(action, details):
 
 # IP adresi doğrulama
 def is_valid_ip(ip):
-    # IPv4 için regex ve baştaki sıfırları engelleme
     pattern = r'^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})$'
     if not re.match(pattern, ip):
         return False
     
     parts = ip.split('.')
     
-    # Geçersiz IP adresleri
     invalid_ips = ['0.0.0.0', '127.0.0.1', '255.255.255.255']
     if ip in invalid_ips:
         return False
     
-    # Baştaki sıfırları kontrol et
     for part in parts:
         if len(part) > 1 and part.startswith('0'):
             return False
@@ -191,7 +188,6 @@ def is_valid_dns_name(name):
         return False
     
     return True
-
 
 # Reverse DNS için PTR kaydı oluştur
 def create_ptr_record(ip):

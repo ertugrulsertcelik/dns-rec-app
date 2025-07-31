@@ -1,4 +1,3 @@
-# dns-rec-app
 # DNS Kayıt Uygulaması 
 
 ## 📋 Ön Gereksinimler
@@ -24,7 +23,7 @@ sudo apt install -y python3 python3-pip python3-venv python3-flask
 sudo apt install -y bind9 bind9utils
 ```
 
-### 2. BIND9 Konfigürasyonu
+### 2. BIND9 Konfigürasyonu (Opsiyonel)
 
 ```bash
 # BIND9 servisini başlat
@@ -48,16 +47,15 @@ sudo touch /etc/bind/reverse.example.com
 sudo mkdir -p /app/dns-rec-app
 cd /app/dns-rec-app
 
-# Uygulamayı kopyala
+# Uygulamayı dizine kopyala
 sudo cp -r /path/to/your/app/* .
 
-# Python virtual environment oluştur
+# Python virtual environment oluştur (Opsiyonel venv ortamda kurmak isterseniz)
 python3 -m venv venv
 source venv/bin/activate
 
 ## Seçenek 2: Kubernetes ile Kurulum
 
-```bash
 # Kubernetes deployment'ı uygula
 kubectl apply -f dns-app.yaml
 
@@ -69,12 +67,11 @@ kubectl get services
 ### 7. Service Konfigürasyonu
 
 ```bash
-# Service dosyası oluşturuldu gerekli konfigürsayonları kendiniz düzenleyebilirsiniz
+# Service dosyası oluşturulmuş halde dökümanda bulunuyor gerekli konfigürsayonları kendiniz düzenleyebilirsiniz
 
-sudo mv dns-rec-app.service /etc/systemd/system
+sudo mv services/dns-rec-app.service /etc/systemd/system
 
 ```
-
 
 ```bash
 # Service'i etkinleştir
@@ -124,7 +121,10 @@ sudo ufw status
 
 ### 4. Eski DNS Kayıtlarını Aktarma
 ```bash
-# python3 rec_to_json.py records.txt example.local json.txt 
+#Uygulama'nın çalıştırılması
+python3 rec_to_json.py records.txt example.local json.txt 
+
+#Tanımlar
 python3 ⟶ kodu çalıştırmak için
 rec_to_json ⟶ uygulama 
 records ⟶ eski dns kayıtları (forward) dosyası
@@ -138,6 +138,8 @@ example.local ⟶ alan adını gir
 json.txt ⟶ json formatındaki çıktının yazılacağı dosyayı ekle 
 
 Çalıştırıldığında tüm kayıtlarınız .json formatına dönüşmüş olacak…
+
+JSON formatında oluşan yeni kayıtları data klasörü altındaki config dosyasına ekleyebilirsiniz
 ```
 
 ## 🚨 Kritik Güvenlik Notları
@@ -149,22 +151,19 @@ json.txt ⟶ json formatındaki çıktının yazılacağı dosyayı ekle
 - Log dosyaları düzenli olarak rotate edilmeli
 
 
-```
-
-
 ### Yaygın Sorunlar ve Çözümleri
 
-1. **Uygulama başlamıyor**
+- **Uygulama başlamıyor**
    - Port 5000 kullanımda mı kontrol et
    - Python bağımlılıkları eksik mi kontrol et
    - Log dosyalarını kontrol et
 
-2. **DNS sorguları çalışmıyor**
+- **DNS sorguları çalışmıyor**
    - BIND9 çalışıyor mu kontrol et
    - Zone dosyaları doğru mu kontrol et
    - Firewall kuralları doğru mu kontrol et
 
-3. **Zone dosyaları güncellenmiyor**
+- **Zone dosyaları güncellenmiyor**
    - Dosya izinleri doğru mu kontrol et
    - BIND9 yazma izni var mı kontrol et
 
@@ -175,6 +174,5 @@ json.txt ⟶ json formatındaki çıktının yazılacağı dosyayı ekle
 - [DNS Security Best Practices](https://www.ietf.org/rfc/rfc4033.txt)
 - [Systemd Service Configuration](https://www.freedesktop.org/software/systemd/man/systemd.service.html)
 
----
 
-**Not**: Bu rehber production ortamı için hazırlanmıştır. Test ortamında önce deneyin ve güvenlik gereksinimlerinize göre uyarlayın. 
+🚨 Not: Bu rehber production ortamı için hazırlanmıştır. Test ortamında önce deneyin ve güvenlik gereksinimlerinize göre uyarlayın. 
