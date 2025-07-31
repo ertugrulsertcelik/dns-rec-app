@@ -122,6 +122,24 @@ sudo netstat -tlnp | grep :5000
 sudo ufw status
 ```
 
+### 4. Eski DNS Kayıtlarını Aktarma
+```bash
+# python3 rec_to_json.py records.txt example.local json.txt 
+python3 ⟶ kodu çalıştırmak için
+rec_to_json ⟶ uygulama 
+records ⟶ eski dns kayıtları (forward) dosyası
+
+auth7	IN	A	133.101.173.247
+user12	IN	A	155.71.222.102 
+
+Şeklinde kayıtları sırayla records.txt dosyasına ekle 
+
+example.local ⟶ alan adını gir 
+json.txt ⟶ json formatındaki çıktının yazılacağı dosyayı ekle 
+
+Çalıştırıldığında tüm kayıtlarınız .json formatına dönüşmüş olacak…
+```
+
 ## 🚨 Kritik Güvenlik Notları
 
 
